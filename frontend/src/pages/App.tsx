@@ -913,7 +913,8 @@ export default function App() {
             if (messageType === "sensor_msgs/msg/CompressedImage" || messageType === "sensor_msgs/CompressedImage") {
               const mime = msg.format && String(msg.format).includes("png") ? "image/png" : "image/jpeg";
               const bytes = bytesFromRosbridgeField(msg.data);
-              const blob = new Blob([bytes], { type: mime });
+              const safeBytes = new Uint8Array(bytes);
+              const blob = new Blob([safeBytes], { type: mime });
               const url = URL.createObjectURL(blob);
               setCamImgUrl((prev) => {
                 if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
