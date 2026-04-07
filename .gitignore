@@ -1,0 +1,35 @@
+# --- Dependencies (never commit; restored with npm install) ---
+node_modules/
+
+# --- Build outputs ---
+dist/
+dist-electron/
+*.tsbuildinfo
+
+# --- Local secrets / machine-specific config ---
+# Commit backend/.env.example only; copy to .env locally.
+!.env
+.env.*
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Test / coverage ---
+coverage/
+
+# --- Packaged desktop binaries (distribute via GitHub Releases, not git) ---
+*.AppImage
+*.exe
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Editor (local) ---
+.idea/
+*.swp
+*.swo
