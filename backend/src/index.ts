@@ -13,7 +13,7 @@ import type { ConnectConfig } from "ssh2";
 import type { ClientChannel } from "ssh2";
 
 const cfg = loadConfig();
-const packagedStaticRoot = process.env.AUV_GUI_STATIC?.trim();
+const packagedStaticRoot = (process.env.MAV_GUI_STATIC ?? process.env.AUV_GUI_STATIC)?.trim();
 const defaultSshConfig = buildSshConfig(cfg);
 
 type TargetSession = {
@@ -500,7 +500,26 @@ app.post(
   })
 );
 
-type SensorId = "dvl" | "sbg" | "ping2" | "ping360" | "frontcam" | "bottomcam" | "modem";
+type SensorId =
+  | "dvl"
+  | "sbg"
+  | "ping2"
+  | "ping360"
+  | "frontcam"
+  | "bottomcam"
+  | "modem"
+  | "bar30_ps";
+
+const SENSOR_IDS: SensorId[] = [
+  "dvl",
+  "sbg",
+  "ping2",
+  "ping360",
+  "frontcam",
+  "bottomcam",
+  "modem",
+  "bar30_ps",
+];
 
 function sensorAlias(id: SensorId): string {
   switch (id) {
@@ -518,6 +537,8 @@ function sensorAlias(id: SensorId): string {
       return "bottomcam";
     case "modem":
       return "modem";
+    case "bar30_ps":
+      return "bar30";
   }
 }
 
@@ -538,6 +559,10 @@ function sensorStopPattern(id: SensorId): string {
       return "bottomcam";
     case "modem":
       return "modem";
+    case "bar30_ps":
+      // Bar30 pressure nodes often show "ms5837" (chip) in argv, not the shell alias "bar30".
+      // ERE: procps pgrep/pkill -f matches the full command line.
+      return "ms5837|bar30";
   }
 }
 
@@ -561,7 +586,7 @@ app.post(
   "/api/sensors/start/:id",
   asyncHandler(async (req, res) => {
     const rawId = (req.params.id ?? "").toLowerCase() as SensorId | string;
-    if (!["dvl", "sbg", "ping2", "ping360", "frontcam", "bottomcam", "modem"].includes(rawId)) {
+    if (!SENSOR_IDS.includes(rawId as SensorId)) {
       res.status(400).json({ code: 1, stdout: "", stderr: "unknown sensor id" });
       return;
     }
@@ -586,7 +611,7 @@ app.post(
   "/api/sensors/stop/:id",
   asyncHandler(async (req, res) => {
     const rawId = (req.params.id ?? "").toLowerCase() as SensorId | string;
-    if (!["dvl", "sbg", "ping2", "ping360", "frontcam", "bottomcam", "modem"].includes(rawId)) {
+    if (!SENSOR_IDS.includes(rawId as SensorId)) {
       res.status(400).json({ code: 1, stdout: "", stderr: "unknown sensor id" });
       return;
     }
@@ -605,7 +630,7 @@ app.get(
   "/api/sensors/status",
   asyncHandler(async (req, res) => {
     const t = getTarget(req);
-    const ids: SensorId[] = ["dvl", "sbg", "ping2", "ping360", "frontcam", "bottomcam", "modem"];
+    const ids = SENSOR_IDS;
 
     const status: Record<SensorId, boolean> = {
       dvl: false,
@@ -615,6 +640,7 @@ app.get(
       frontcam: false,
       bottomcam: false,
       modem: false,
+      bar30_ps: false,
     };
 
     // More accurate per-sensor check (avoids substring false-positives).
@@ -629,7 +655,7 @@ app.get(
   "/api/sensors/status/:id",
   asyncHandler(async (req, res) => {
     const rawId = (req.params.id ?? "").toLowerCase() as SensorId | string;
-    if (!["dvl", "sbg", "ping2", "ping360", "frontcam", "bottomcam", "modem"].includes(rawId)) {
+    if (!SENSOR_IDS.includes(rawId as SensorId)) {
       res.status(400).json({ code: 1, stdout: "", stderr: "unknown sensor id" });
       return;
     }
@@ -948,7 +974,7 @@ if (packagedStaticRoot) {
     const assetsDir = path.join(abs, "assets");
     // eslint-disable-next-line no-console
     console.log(
-      `[static] AUV_GUI_STATIC=${abs} index=${fs.existsSync(indexFile)} assetsDir=${fs.existsSync(assetsDir)}`
+      `[static] MAV_GUI_STATIC=${abs} index=${fs.existsSync(indexFile)} assetsDir=${fs.existsSync(assetsDir)}`
     );
     app.use(express.static(abs));
     app.get("*", (req, res, next) => {
@@ -974,7 +1000,7 @@ if (packagedStaticRoot) {
     });
   } else {
     // eslint-disable-next-line no-console
-    console.warn(`[static] AUV_GUI_STATIC path missing: ${abs}`);
+    console.warn(`[static] MAV_GUI_STATIC path missing: ${abs}`);
   }
 }
 

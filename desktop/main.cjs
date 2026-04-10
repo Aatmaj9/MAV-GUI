@@ -8,7 +8,7 @@ if (process.platform === "linux") {
   app.disableHardwareAcceleration();
 }
 
-if (process.env.AUV_GUI_OZONE_X11 === "1") {
+if (process.env.MAV_GUI_OZONE_X11 === "1" || process.env.AUV_GUI_OZONE_X11 === "1") {
   app.commandLine.appendSwitch("ozone-platform", "x11");
 }
 
@@ -81,6 +81,7 @@ function startBackend() {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",
+      MAV_GUI_STATIC: staticDir,
       AUV_GUI_STATIC: staticDir,
       FRONTEND_ORIGIN: GUI_URL,
       BACKEND_PORT: String(BACKEND_PORT),
@@ -111,14 +112,14 @@ function createWindow() {
     console.error("[gui] did-fail-load", { errorCode, errorDescription, validatedURL });
   });
   mainWindow.webContents.on("console-message", (_event, level, message) => {
-    if (process.env.AUV_GUI_DEBUG === "1") {
+    if (process.env.MAV_GUI_DEBUG === "1" || process.env.AUV_GUI_DEBUG === "1") {
       console.log("[renderer]", message);
       return;
     }
     if (level >= 2) console.error("[renderer]", message);
   });
 
-  if (process.env.AUV_GUI_DEBUG === "1") {
+  if (process.env.MAV_GUI_DEBUG === "1" || process.env.AUV_GUI_DEBUG === "1") {
     mainWindow.webContents.openDevTools({ mode: "detach" });
   }
 

@@ -1,6 +1,6 @@
-# AUV Web GUI
+# MAV-GUI
 
-Desktop and web-based interface for controlling and monitoring your AUV from your PC. 
+Desktop and web-based interface for controlling and monitoring your AUV/ASV fleet from your PC. 
 **Onboard layout:** This GUI expects the same repository layout as the [AUV](https://github.com/Aatmaj9/AUV) software stack on the vehicle. Clone that repo on the AUV machine and keep the expected folder structure so paths and tooling match what the GUI assumes.
 
 ---
@@ -67,10 +67,10 @@ Open **http://localhost:5173** in your browser. The dev server proxies API and W
 
 Use this when you want a packaged app without installing Node or cloning the repository for daily use.
 
-1. Open the **[Releases](https://github.com/Aatmaj9/AUV-GUI/releases)** page for this repository.
+1. Open the **[Releases](https://github.com/Aatmaj9/MAV-GUI/releases)** page for this repository.
 2. Download the artifact for your system:
    - **Linux:** `.AppImage` — make it executable (`chmod +x *.AppImage`), then run it.
-   - **Windows:** run the installer (`.exe`) and start **AUV Web GUI** from the Start menu or desktop shortcut.
+   - **Windows:** run the installer (`.exe`) and start **MAV GUI** from the Start menu or desktop shortcut.
 
 Requirements are the same in practice: SSH reachability to the AUV and the onboard **AUV** repo layout on the vehicle. Install a newer release when you need fixes or features shipped after your current build.
 

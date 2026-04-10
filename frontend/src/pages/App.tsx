@@ -48,7 +48,7 @@ type DashboardTab = {
   host: string;
 };
 
-const UDEV_APPLIED_SESSION_KEY = "auv-gui-udev-applied";
+const UDEV_APPLIED_SESSION_KEY = "mav-gui-udev-applied";
 
 type TopicsResponse =
   | { code: number; topics: string[]; stderr?: string }
@@ -614,7 +614,16 @@ export default function App() {
     if (!silent) setSensorStatusLoading(true);
     try {
       const tid = currentTargetId;
-      const ids = ["dvl", "sbg", "ping2", "ping360", "frontcam", "bottomcam", "modem"] as const;
+      const ids = [
+        "dvl",
+        "sbg",
+        "ping2",
+        "ping360",
+        "frontcam",
+        "bottomcam",
+        "modem",
+        "bar30_ps",
+      ] as const;
       // Update per-sensor so one slow/failing check doesn't freeze the whole panel.
       const results = await Promise.all(
         ids.map(async (id) => {
@@ -2283,6 +2292,7 @@ export default function App() {
                     { id: "frontcam", label: "FRONTCAM" },
                     { id: "bottomcam", label: "BOTTOMCAM" },
                     { id: "modem", label: "MODEM" },
+                    { id: "bar30_ps", label: "BAR30" },
                   ].map((s) => {
                     const running = !!sensorRunning[s.id];
                     return (

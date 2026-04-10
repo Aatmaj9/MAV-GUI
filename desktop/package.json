@@ -1,6 +1,6 @@
 {
-  "name": "auv-gui-desktop",
-  "version": "0.1.0",
+  "name": "mav-gui-desktop",
+  "version": "1.0.0",
   "private": true,
   "main": "main.cjs",
   "scripts": {
@@ -15,8 +15,8 @@
     "electron-builder": "^25.1.8"
   },
   "build": {
-    "appId": "org.auv.gui",
-    "productName": "AUV Web GUI",
+    "appId": "org.mav.gui",
+    "productName": "MAV GUI",
     "directories": {
       "output": "dist-electron"
     },
@@ -41,7 +41,7 @@
         "to": "frontend-dist"
       }
     ],
-    "artifactName": "auv-gui-${version}.${ext}",
+    "artifactName": "mav-gui-${version}.${ext}",
     "linux": {
       "target": [
         "AppImage"
