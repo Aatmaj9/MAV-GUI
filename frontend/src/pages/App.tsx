@@ -18,6 +18,9 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
+  List,
+  ListItemButton,
+  ListItemText,
 } from "@mui/material";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
@@ -29,6 +32,17 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 // roslib has no bundled TS types in this setup
 import ROSLIB from "roslib";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { extractNumericSeries } from "../ros/plotExtract";
 import { TerminalSplitPane } from "../components/TerminalSplitPane";
 import { Landing } from "./Landing";
 import type { VesselKey, VesselProfile } from "../components/VesselConnectCard";
@@ -173,8 +187,12 @@ export default function App() {
   const [topicFilter, setTopicFilter] = useState("");
   const [echoTopic, setEchoTopic] = useState<string>("");
   const [plotTopic, setPlotTopic] = useState<string>("");
-  const [plotHz, setPlotHz] = useState<number[]>([]);
-  const [plotTs, setPlotTs] = useState<number[]>([]);
+  const [plotTopicFilter, setPlotTopicFilter] = useState<string>("");
+  const [plotChartData, setPlotChartData] = useState<Record<string, number>[]>([]);
+  const [plotSeriesKeys, setPlotSeriesKeys] = useState<string[]>([]);
+  const [plotMsgTypeLabel, setPlotMsgTypeLabel] = useState<string>("");
+  const [plotError, setPlotError] = useState<string | null>(null);
+  const [plotLive, setPlotLive] = useState(false);
 
   // rosbridge is assumed to be a persistent service (no GUI-controlled start/stop).
 
@@ -260,7 +278,7 @@ export default function App() {
   }, [httpBase]);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const plotWsRef = useRef<WebSocket | null>(null);
+  const plotFlushRafRef = useRef<number | null>(null);
   const rosRef = useRef<any | null>(null);
   const camSubRef = useRef<any | null>(null);
   const teleRosRef = useRef<any | null>(null);
@@ -275,6 +293,12 @@ export default function App() {
     if (!q) return topics;
     return topics.filter((t) => t.includes(q));
   }, [topics, topicFilter]);
+
+  const plotFilteredTopics = useMemo(() => {
+    const q = plotTopicFilter.trim().toLowerCase();
+    if (!q) return topics;
+    return topics.filter((t) => t.toLowerCase().includes(q));
+  }, [topics, plotTopicFilter]);
 
   function appendEcho(s: string) {
     setEchoText((prev) => {
@@ -800,57 +824,84 @@ export default function App() {
   }
 
   function stopPlot() {
-    const ws = plotWsRef.current;
-    plotWsRef.current = null;
-    if (ws) ws.close();
+    if (plotFlushRafRef.current != null) {
+      cancelAnimationFrame(plotFlushRafRef.current);
+      plotFlushRafRef.current = null;
+    }
     try {
       plotSubRef.current?.unsubscribe();
     } catch {}
     plotSubRef.current = null;
+    setPlotChartData([]);
+    setPlotSeriesKeys([]);
+    setPlotMsgTypeLabel("");
+    setPlotError(null);
+    setPlotLive(false);
   }
 
   async function startPlot() {
     const topic = plotTopic.trim();
     if (!topic) {
-      appendLog("[plot] pick a topic first\n\n");
+      setPlotError("Select a topic from the list (or type a name).");
       return;
     }
     stopPlot();
-    setPlotHz([]);
-    setPlotTs([]);
+    setPlotError(null);
 
     const ros = getTeleRos();
-    if (!ros) return;
+    if (!ros) {
+      setPlotError("Rosbridge not connected. Check vehicle status and port 9090.");
+      return;
+    }
 
-    let count = 0;
     const t0 = Date.now();
-    const timer = window.setInterval(() => {
-      const now = Date.now();
-      const dt = (now - t0) / 1000;
-      if (dt <= 0) return;
-      const hz = count; // per 1s bucket
-      count = 0;
-      setPlotTs((p) => {
-        const next = [...p, now];
-        return next.length > 120 ? next.slice(-120) : next;
+    const buffer: Array<Record<string, number>> = [];
+    const lastVals: Record<string, number> = {};
+    const keysSeen = new Set<string>();
+    const MAX_POINTS = 500;
+
+    const scheduleFlush = () => {
+      if (plotFlushRafRef.current != null) return;
+      plotFlushRafRef.current = requestAnimationFrame(() => {
+        plotFlushRafRef.current = null;
+        setPlotChartData([...buffer]);
+        setPlotSeriesKeys(Array.from(keysSeen).sort());
       });
-      setPlotHz((p) => {
-        const next = [...p, hz];
-        return next.length > 120 ? next.slice(-120) : next;
-      });
-    }, 1000);
+    };
 
     try {
       const messageType = await getTopicTypeViaRosapi(ros, topic);
       const roslibType = normalizeRoslibMessageType(messageType);
+      setPlotMsgTypeLabel(messageType);
+
       const sub = new ROSLIB.Topic({ ros, name: topic, messageType: roslibType });
       plotSubRef.current = sub;
-      sub.subscribe(() => {
-        count += 1;
+      setPlotLive(true);
+
+      sub.subscribe((msg: unknown) => {
+        const { series, keys } = extractNumericSeries(msg, messageType);
+        if (keys.length === 0) return;
+
+        for (const k of keys) {
+          const v = series[k];
+          if (typeof v === "number" && Number.isFinite(v)) {
+            lastVals[k] = v;
+            keysSeen.add(k);
+          }
+        }
+
+        const tRel = (Date.now() - t0) / 1000;
+        const row: Record<string, number> = { tRel };
+        for (const k of keysSeen) {
+          if (k in lastVals) row[k] = lastVals[k];
+        }
+        buffer.push(row);
+        if (buffer.length > MAX_POINTS) buffer.shift();
+        scheduleFlush();
       });
     } catch (e) {
-      window.clearInterval(timer);
-      appendLog(`[plot] error: ${String(e)}\n`);
+      setPlotLive(false);
+      setPlotError(String(e));
     }
   }
 
